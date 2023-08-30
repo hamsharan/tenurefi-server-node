@@ -21,7 +21,10 @@ class QueueService {
     connection: {
       host: EnvVars.RedisHost,
       port: EnvVars.RedisPort,
-      password: EnvVars.NodeEnv === Environments.Development ? undefined : EnvVars.RedisPassword,
+      password:
+        EnvVars.NodeEnv === Environments.Development
+          ? undefined
+          : EnvVars.RedisPassword,
     },
   };
 

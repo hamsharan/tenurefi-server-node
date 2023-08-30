@@ -37,7 +37,8 @@ interface IPayload extends JwtPayload {
 }
 
 const Errors = {
-  RequestBody: (error: ValidationError) => `Error validating request body: ${JSON.stringify(error)}`,
+  RequestBody: (error: ValidationError) =>
+    `Error validating request body: ${JSON.stringify(error)}`,
   UserExists: 'User already exists',
   InvalidCredentials: 'Invalid login credentials',
   MissingRefreshToken: 'Missing refresh token',
@@ -85,36 +86,46 @@ const authRouter = Router();
  *       500:
  *         description: Internal server error
  */
-authRouter.post(Paths.Auth.Register, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const validationResult = AuthRequestSchema.validate(req.body);
-    if (validationResult.error) {
-      throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.RequestBody(validationResult.error));
+authRouter.post(
+  Paths.Auth.Register,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = AuthRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error),
+        );
+      }
+
+      const { email, password } = validationResult.value as AuthRequest;
+      const existingUser = await UserService.findUserByEmail(email);
+
+      if (existingUser) {
+        throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
+      }
+
+      const user = await UserService.createUserByEmailAndPassword({
+        email,
+        password,
+      });
+      const jti = uuidv4();
+      const { accessToken, refreshToken } = generateTokens(user.id, jti);
+      await AuthService.addRefreshTokenToWhitelist({
+        jti,
+        refreshToken,
+        userId: user.id,
+      });
+
+      return res.json({
+        accessToken,
+        refreshToken,
+      });
+    } catch (err) {
+      next(err);
     }
-
-    const { email, password } = validationResult.value as AuthRequest;
-    const existingUser = await UserService.findUserByEmail(email);
-
-    if (existingUser) {
-      throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
-    }
-
-    const user = await UserService.createUserByEmailAndPassword({
-      email,
-      password,
-    });
-    const jti = uuidv4();
-    const { accessToken, refreshToken } = generateTokens(user.id, jti);
-    await AuthService.addRefreshTokenToWhitelist({ jti, refreshToken, userId: user.id });
-
-    return res.json({
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+  },
+);
 
 /**
  * @swagger
@@ -155,38 +166,57 @@ authRouter.post(Paths.Auth.Register, async (req: Request, res: Response, next: N
  *       500:
  *         description: Internal server error
  */
-authRouter.post(Paths.Auth.Login, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const validationResult = AuthRequestSchema.validate(req.body);
-    if (validationResult.error) {
-      throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.RequestBody(validationResult.error));
+authRouter.post(
+  Paths.Auth.Login,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = AuthRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error),
+        );
+      }
+
+      const { email, password } = validationResult.value as AuthRequest;
+      const existingUser = await UserService.findUserByEmail(email);
+
+      if (!existingUser) {
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.InvalidCredentials,
+        );
+      }
+
+      const validPassword = await compare(password, existingUser.password);
+      if (!validPassword) {
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.InvalidCredentials,
+        );
+      }
+
+      const jti = uuidv4();
+      const { accessToken, refreshToken } = generateTokens(
+        existingUser.id,
+        jti,
+      );
+      await AuthService.addRefreshTokenToWhitelist({
+        jti,
+        refreshToken,
+        userId: existingUser.id,
+      });
+
+      return res.json({
+        accessToken,
+        refreshToken,
+      });
+    } catch (err) {
+      logger.err(err, true);
+      next(err);
     }
-
-    const { email, password } = validationResult.value as AuthRequest;
-    const existingUser = await UserService.findUserByEmail(email);
-
-    if (!existingUser) {
-      throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.InvalidCredentials);
-    }
-
-    const validPassword = await compare(password, existingUser.password);
-    if (!validPassword) {
-      throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.InvalidCredentials);
-    }
-
-    const jti = uuidv4();
-    const { accessToken, refreshToken } = generateTokens(existingUser.id, jti);
-    await AuthService.addRefreshTokenToWhitelist({ jti, refreshToken, userId: existingUser.id });
-
-    return res.json({
-      accessToken,
-      refreshToken,
-    });
-  } catch (err) {
-    logger.err(err, true);
-    next(err);
-  }
-});
+  },
+);
 
 /**
  * @swagger
@@ -223,43 +253,58 @@ authRouter.post(Paths.Auth.Login, async (req: Request, res: Response, next: Next
  *       500:
  *         description: Internal server error
  */
-authRouter.post(Paths.Auth.RefreshToken, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const validationResult = RefreshTokenRequestSchema.validate(req.body);
-    if (validationResult.error) {
-      throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.RequestBody(validationResult.error));
+authRouter.post(
+  Paths.Auth.RefreshToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = RefreshTokenRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error),
+        );
+      }
+
+      const { refreshToken } = validationResult.value as RefreshTokenRequest;
+      const payload = verify(refreshToken, '') as IPayload;
+      const savedRefreshToken = await AuthService.findRefreshTokenById(
+        payload.jti,
+      );
+      if (!savedRefreshToken || savedRefreshToken.revoked) {
+        throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
+      }
+
+      const hashedToken = hashToken(refreshToken);
+      if (hashedToken !== savedRefreshToken.hashedToken) {
+        throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
+      }
+
+      const user = await UserService.findUserById(payload.userId);
+      if (!user) {
+        throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
+      }
+
+      await AuthService.deleteRefreshTokenById(savedRefreshToken.id);
+      const jti = uuidv4();
+      const { accessToken, refreshToken: newRefreshToken } = generateTokens(
+        user.id,
+        jti,
+      );
+      await AuthService.addRefreshTokenToWhitelist({
+        jti,
+        refreshToken: newRefreshToken,
+        userId: user.id,
+      });
+
+      return res.json({
+        accessToken,
+        refreshToken: newRefreshToken,
+      });
+    } catch (err) {
+      logger.err(err, true);
+      next(err);
     }
-
-    const { refreshToken } = validationResult.value as RefreshTokenRequest;
-    const payload = verify(refreshToken, '') as IPayload;
-    const savedRefreshToken = await AuthService.findRefreshTokenById(payload.jti);
-    if (!savedRefreshToken || savedRefreshToken.revoked) {
-      throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
-    }
-
-    const hashedToken = hashToken(refreshToken);
-    if (hashedToken !== savedRefreshToken.hashedToken) {
-      throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
-    }
-
-    const user = await UserService.findUserById(payload.userId);
-    if (!user) {
-      throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
-    }
-
-    await AuthService.deleteRefreshTokenById(savedRefreshToken.id);
-    const jti = uuidv4();
-    const { accessToken, refreshToken: newRefreshToken } = generateTokens(user.id, jti);
-    await AuthService.addRefreshTokenToWhitelist({ jti, refreshToken: newRefreshToken, userId: user.id });
-
-    return res.json({
-      accessToken,
-      refreshToken: newRefreshToken,
-    });
-  } catch (err) {
-    logger.err(err, true);
-    next(err);
-  }
-});
+  },
+);
 
 export default authRouter;

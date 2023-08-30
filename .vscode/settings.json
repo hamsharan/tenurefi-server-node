@@ -1,5 +1,5 @@
 {
-    "editor.formatOnPaste": true,
-    "editor.formatOnSave": true,
-    "prettier.configPath": ".prettierrc.json",
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "prettier.configPath": ".prettierrc.json"
 }

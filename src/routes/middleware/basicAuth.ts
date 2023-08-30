@@ -21,4 +21,7 @@ passport.use(
   }),
 );
 
-export const basicAuthMiddleware = passport.authenticate('basic', basicAuthOptions);
+export const basicAuthMiddleware = passport.authenticate(
+  'basic',
+  basicAuthOptions,
+);

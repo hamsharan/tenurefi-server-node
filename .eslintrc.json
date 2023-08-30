@@ -18,7 +18,7 @@
     "max-len": [
       "warn",
       {
-        "code": 120
+        "code": 80
       }
     ],
     "comma-dangle": ["warn", "always-multiline"],
@@ -28,7 +28,10 @@
     "indent": ["error", 2, { "SwitchCase": 1 }],
     "quotes": ["warn", "single"],
     "node/no-process-env": 1,
-    "node/no-unsupported-features/es-syntax": ["error", { "ignores": ["modules"] }],
+    "node/no-unsupported-features/es-syntax": [
+      "error",
+      { "ignores": ["modules"] }
+    ],
     "node/no-missing-import": 0,
     "node/no-unpublished-import": 0,
     "prettier/prettier": [
@@ -37,7 +40,9 @@
         "semi": true,
         "singleQuote": true,
         "trailingComma": "all",
-        "endOfLine": "auto"
+        "endOfLine": "auto",
+        "tabWidth": 2,
+        "printWidth": 80
       }
     ]
   },

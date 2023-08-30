@@ -5,6 +5,7 @@ import EnvVars from '@src/constants/EnvVars';
 
 import server from './server';
 
-const SERVER_START_MSG = 'Tenure Server started on port: ' + EnvVars.Port.toString();
+const SERVER_START_MSG =
+  'Tenure Server started on port: ' + EnvVars.Port.toString();
 
 server.listen(EnvVars.Port, () => logger.info(SERVER_START_MSG));

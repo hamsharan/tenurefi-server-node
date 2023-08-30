@@ -5,9 +5,9 @@ import EnvVars from '@src/constants/EnvVars';
 import { Messages } from '@src/constants/Messages';
 import { RedisMessages } from '@src/constants/RedisMessages';
 
-const redisUrl: string = `redis://${EnvVars.RedisPassword !== '' ? `:${EnvVars.RedisPassword}@` : ''}${
-  EnvVars.RedisHost
-}:${EnvVars.RedisPort}`;
+const redisUrl: string = `redis://${
+  EnvVars.RedisPassword !== '' ? `:${EnvVars.RedisPassword}@` : ''
+}${EnvVars.RedisHost}:${EnvVars.RedisPort}`;
 
 const options: RedisClientOptions = {
   url: redisUrl,

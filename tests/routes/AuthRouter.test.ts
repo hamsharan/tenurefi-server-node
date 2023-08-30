@@ -20,17 +20,24 @@ const refreshSecret = 'refreshsecret';
 const refreshToken = 'refreshToken';
 const userId = '1fb8cd91-40f1-419b-b9f9-a6873affe8ec';
 
-const correctToken = sign({ userId, jti: refreshTokenId }, refreshSecret, { expiresIn: '8h' });
-const wrongToken = sign({ userId, jti: fakeTokenId }, refreshSecret, { expiresIn: '8h' });
+const correctToken = sign({ userId, jti: refreshTokenId }, refreshSecret, {
+  expiresIn: '8h',
+});
+const wrongToken = sign({ userId, jti: fakeTokenId }, refreshSecret, {
+  expiresIn: '8h',
+});
 
 describe('AuthRouter', () => {
   let chaiHttpResponse: Response;
 
   describe('POST /auth/register', () => {
     it('should throw a validation error if an incorrect request body is provided', async () => {
-      chaiHttpResponse = await chai.request(app).post('/api/auth/register').send({
-        email,
-      });
+      chaiHttpResponse = await chai
+        .request(app)
+        .post('/api/auth/register')
+        .send({
+          email,
+        });
 
       const { status, body } = chaiHttpResponse;
 
@@ -39,10 +46,13 @@ describe('AuthRouter', () => {
     });
 
     it('should register a new user if no existing user with that email exists', async () => {
-      chaiHttpResponse = await chai.request(app).post('/api/auth/register').send({
-        email: 'test@test.com',
-        password: 'test',
-      });
+      chaiHttpResponse = await chai
+        .request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'test@test.com',
+          password: 'test',
+        });
 
       const { status, body } = chaiHttpResponse;
 
@@ -121,9 +131,12 @@ describe('POST /auth/refreshToken', () => {
   let chaiHttpResponse: Response;
 
   it('should throw a validation error if an incorrect request body is provided', async () => {
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      token: refreshToken,
-    });
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        token: refreshToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 
@@ -132,9 +145,12 @@ describe('POST /auth/refreshToken', () => {
   });
 
   it('should throw a JsonWebTokerError if JWT is malformed', async () => {
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      refreshToken,
-    });
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        refreshToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 
@@ -143,9 +159,12 @@ describe('POST /auth/refreshToken', () => {
   });
 
   it('should throw an error if refreshToken does not exist', async () => {
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      refreshToken: wrongToken,
-    });
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        refreshToken: wrongToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 
@@ -163,9 +182,12 @@ describe('POST /auth/refreshToken', () => {
       },
     });
 
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      refreshToken: correctToken,
-    });
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        refreshToken: correctToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 
@@ -174,11 +196,16 @@ describe('POST /auth/refreshToken', () => {
   });
 
   it('should throw an error if refreshToken hash is not the same as savedRefreshToken.hashedToken', async () => {
-    const testToken = sign({ userId, jti: fakeTokenId }, refreshSecret, { expiresIn: '8h' });
-
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      refreshToken: testToken,
+    const testToken = sign({ userId, jti: fakeTokenId }, refreshSecret, {
+      expiresIn: '8h',
     });
+
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        refreshToken: testToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 
@@ -187,11 +214,18 @@ describe('POST /auth/refreshToken', () => {
   });
 
   it('should throw an error if user does not exist in the db', async () => {
-    const testToken = sign({ userId: 'fakeUserId', jti: refreshTokenId }, refreshSecret, { expiresIn: '8h' });
+    const testToken = sign(
+      { userId: 'fakeUserId', jti: refreshTokenId },
+      refreshSecret,
+      { expiresIn: '8h' },
+    );
 
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      refreshToken: testToken,
-    });
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        refreshToken: testToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 
@@ -209,9 +243,12 @@ describe('POST /auth/refreshToken', () => {
       },
     });
 
-    chaiHttpResponse = await chai.request(app).post('/api/auth/refreshToken').send({
-      refreshToken: correctToken,
-    });
+    chaiHttpResponse = await chai
+      .request(app)
+      .post('/api/auth/refreshToken')
+      .send({
+        refreshToken: correctToken,
+      });
 
     const { status, body } = chaiHttpResponse;
 

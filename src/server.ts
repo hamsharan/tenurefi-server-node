@@ -66,10 +66,18 @@ if (defaultQueue) {
     serverAdapter,
   });
 
-  app.use(Paths.BullBoard.Base, basicAuthMiddleware, serverAdapter.getRouter() as Router);
+  app.use(
+    Paths.BullBoard.Base,
+    basicAuthMiddleware,
+    serverAdapter.getRouter() as Router,
+  );
 }
 
-app.use(Paths.ApiDocs.Base, swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerOptions));
+app.use(
+  Paths.ApiDocs.Base,
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocs, swaggerOptions),
+);
 app.use(Paths.Base, ApiRouter);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
