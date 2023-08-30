@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express, { NextFunction, Request, Response, Router } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import logger from 'jet-logger';
 import morgan from 'morgan';
@@ -15,6 +15,7 @@ import { Messages } from '@src/constants/Messages';
 import Paths from '@src/constants/Paths';
 import { swaggerDocs, swaggerOptions } from '@src/docs/swaggerOptions';
 import { RouteError } from '@src/types/classes';
+import redisClient from '@src/utils/redis';
 
 const app = express();
 
@@ -30,6 +31,11 @@ if (EnvVars.NodeEnv === Environments.Development) {
 if (EnvVars.NodeEnv === Environments.Production) {
   app.use(helmet());
 }
+
+app.use((req, res, next) => {
+  req.redis = redisClient;
+  next();
+});
 
 app.get('/health', (request: Request, response: Response) => {
   response
