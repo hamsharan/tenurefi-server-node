@@ -10,11 +10,11 @@ async function main() {
   const testUserId = '1fb8cd91-40f1-419b-b9f9-a6873affe8ec';
 
   await prisma.user.upsert({
-    where: { email: 'jafrisy@mfcgd.com' },
+    where: { email: 'hasan@tenurefi.com' },
     update: {},
     create: {
       id: testUserId,
-      email: 'jafrisy@mfcgd.com',
+      email: 'hasan@tenurefi.com',
       password: '$2b$12$axvDaVkqcnnIMpVfUH7VRe6a.sbgdXds4glT.yef0X7JE/zdqv3YC',
     },
   });

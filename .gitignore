@@ -2,5 +2,7 @@ node_modules
 dist
 **/**/*.log
 development.env
+test.env
+production.env
 coverage
 .nyc_output/

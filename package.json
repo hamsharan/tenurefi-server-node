@@ -17,10 +17,18 @@
     "test": "npm run db:migrate:test && npm run db:seed:test && dotenv -e env/test.env nyc mocha --timeout=3000",
     "test:watch": "npm run db:migrate:test && npm run db:seed:test && dotenv -e env/test.env mocha --watch"
   },
+  "nodemonConfig": {
+    "exec": "./node_modules/.bin/ts-node --files -r tsconfig-paths/register ./src",
+    "ext": "ts",
+    "watch": [
+      "src"
+    ]
+  },
   "dependencies": {
     "@bull-board/api": "^5.8.0",
     "@bull-board/express": "^5.8.0",
     "@prisma/client": "^5.2.0",
+    "bcrypt": "^5.1.1",
     "bullmq": "^4.8.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -43,6 +51,7 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^5.0.0",
     "@types/chai": "^4.3.5",
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
@@ -74,5 +83,14 @@
     "superagent": "^8.1.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "_moduleAliases": {
+    "@src": "dist"
   }
 }
