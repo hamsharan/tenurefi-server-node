@@ -1,5 +1,8 @@
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 import cors from 'cors';
-import express, { NextFunction, Request, Response } from 'express';
+import express, { NextFunction, Request, Response, Router } from 'express';
 import helmet from 'helmet';
 import logger from 'jet-logger';
 import morgan from 'morgan';
@@ -13,11 +16,18 @@ import { Environments } from './constants/Environments';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
 import { Messages } from '@src/constants/Messages';
 import Paths from '@src/constants/Paths';
+import { Queues } from '@src/constants/Queues';
 import { swaggerDocs, swaggerOptions } from '@src/docs/swaggerOptions';
+import ApiRouter from '@src/routes/api';
+import { basicAuthMiddleware } from '@src/routes/middleware/basicAuth';
+import QueueService from '@src/services/QueueService';
 import { RouteError } from '@src/types/classes';
 import redisClient from '@src/utils/redis';
 
 const app = express();
+
+const queueService = QueueService.getInstance();
+const defaultQueue = queueService.getQueue(Queues.DEFAULT);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -47,7 +57,20 @@ app.get('/health', (request: Request, response: Response) => {
     .end();
 });
 
+if (defaultQueue) {
+  const serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath(Paths.BullBoard.Base);
+
+  createBullBoard({
+    queues: [new BullMQAdapter(defaultQueue)],
+    serverAdapter,
+  });
+
+  app.use(Paths.BullBoard.Base, basicAuthMiddleware, serverAdapter.getRouter() as Router);
+}
+
 app.use(Paths.ApiDocs.Base, swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerOptions));
+app.use(Paths.Base, ApiRouter);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _: Request, res: Response, next: NextFunction) => {

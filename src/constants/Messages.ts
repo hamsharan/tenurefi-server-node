@@ -11,4 +11,5 @@ export const Messages = {
   FailedJobNoJobInstance: (message: string) => `Failed job with no job instance. \nError: ${message}`,
   ManuallyTriggeredJob: (jobName: string) => `Manually triggered job ${jobName}`,
   FailedToTriggerJob: (jobName: string, error: any) => `Failed to trigger job ${jobName}: ${error}`,
+  JobNotImplemented: (jobName: string) => `Job ${jobName} not implemented`,
 };
