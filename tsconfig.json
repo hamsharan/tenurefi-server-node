@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "strict": true,
+    "baseUrl": "./",
+    "typeRoots": ["src/types", "node_modules/@types"],
+    "types": ["node", "mocha", "chai"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@src/*": ["src/*"]
+    },
+    "useUnknownInCatchVariables": false
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "build.ts", "prisma/seed.ts"]
+}
