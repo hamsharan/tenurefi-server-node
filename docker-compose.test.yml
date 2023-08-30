@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  db_test:
+    container_name: tenure-db-test
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_USER: 'tenure-test'
+      POSTGRES_PASSWORD: 'tenuretesting'
+      POSTGRES_DB: 'tenure-db-test'
+    ports:
+      - '5555:5432'

@@ -1,0 +1,55 @@
+version: '3.8'
+
+networks:
+  tenure-tier:
+    driver: bridge
+
+services:
+  server:
+    container_name: tenure-server-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - 3333:3333
+    depends_on:
+      - db
+    env_file:
+      - ./env/development.env
+    networks:
+      - tenure-tier
+
+  db:
+    container_name: tenure-db-dev
+    image: postgres:13-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: ''
+      POSTGRES_DB: 'tenure-db-dev'
+      POSTGRES_HOST_AUTH_METHOD: 'trust'
+    ports:
+      - 5432:5432
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - tenure-tier
+
+  redis:
+    container_name: tenure-redis-dev
+    image: redis:6.2.13-alpine
+    command: redis-server --appendonly yes
+    restart: always
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/data
+    networks:
+      - tenure-tier
+
+volumes:
+  pg-data:
+  redis-data:
