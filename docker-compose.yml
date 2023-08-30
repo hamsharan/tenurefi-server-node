@@ -1,0 +1,62 @@
+version: '3.8'
+
+networks:
+  tenure-tier:
+    driver: bridge
+
+services:
+  server:
+    container_name: tenure-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3333:3333
+    depends_on:
+      - db
+    networks:
+      - tenure-tier
+    restart: always
+
+  db:
+    container_name: tenure-db
+    image: postgres:13-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - 5432:5432
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - tenure-tier
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  redis:
+    container_name: tenure-redis
+    image: redis:6.2.13-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    restart: always
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/data
+    networks:
+      - tenure-tier
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+volumes:
+  pg-data:
+  redis-data:
