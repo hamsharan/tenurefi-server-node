@@ -7,6 +7,16 @@ interface RegisterRequest {
   password: string;
 }
 
+interface UpdateRequest {
+  email?: string;
+  password?: string;
+  name?: string;
+  dob?: Date;
+  location?: string;
+  companyRole?: string;
+  companyID?: bigint;
+}
+
 const findUserByEmail = (email: string) => {
   return db.user.findUnique({
     where: {
@@ -34,8 +44,22 @@ const findUserById = (id: string | undefined) => {
   });
 };
 
+const updateUser = (data: UpdateRequest, id: string) => {
+  if (data.password) {
+    data.password = hashSync(data.password, 12);
+  }
+
+  return db.user.update({
+    data,
+    where: {
+      id,
+    },
+  });
+};
+
 export default {
   findUserByEmail,
   createUserByEmailAndPassword,
   findUserById,
+  updateUser,
 } as const;
