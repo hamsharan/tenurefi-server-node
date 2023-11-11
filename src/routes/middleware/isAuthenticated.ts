@@ -1,5 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { verify } from 'jsonwebtoken';
+import {
+  JsonWebTokenError,
+  NotBeforeError,
+  TokenExpiredError,
+  verify,
+} from 'jsonwebtoken';
 
 import EnvVars from '@src/constants/EnvVars';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
@@ -16,11 +21,24 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = authorization.split(' ')[1];
     const payload = verify(token, EnvVars.JwtAccessSecret);
-    req.payload = payload;
+    req.body = {
+      ...req.body,
+      payload,
+    } as object;
   } catch (err) {
-    return res.status(HttpStatusCode.UNAUTHORIZED).json({
-      error: err.name === 'TokenExpiredError' ? err.name : 'Unauthorized',
-    });
+    if (
+      err instanceof JsonWebTokenError ||
+      err instanceof NotBeforeError ||
+      err instanceof TokenExpiredError
+    ) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        error: err.name,
+      });
+    } else {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        error: 'Unauthorized',
+      });
+    }
   }
 
   return next();
