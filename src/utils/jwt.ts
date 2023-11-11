@@ -12,7 +12,7 @@ interface TokenResponse {
 
 const generateAccessToken = (userID: string): string => {
   return sign({ userID }, EnvVars.JwtAccessSecret, {
-    expiresIn: '15m',
+    expiresIn: '24h',
   });
 };
 

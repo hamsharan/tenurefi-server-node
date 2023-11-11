@@ -9,6 +9,9 @@ const Paths = {
     Register: '/register',
     RefreshToken: '/refresh-token',
   },
+  User: {
+    Base: '/user',
+  },
   Company: {
     Base: '/company',
     Employee: '/employee',
