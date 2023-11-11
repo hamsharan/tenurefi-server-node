@@ -10,21 +10,21 @@ interface TokenResponse {
   refreshToken: string;
 }
 
-const generateAccessToken = (userId: string): string => {
-  return sign({ userId }, EnvVars.JwtAccessSecret, {
+const generateAccessToken = (userID: string): string => {
+  return sign({ userID }, EnvVars.JwtAccessSecret, {
     expiresIn: '15m',
   });
 };
 
-const generateRefreshToken = (userId: string, jti: string): string => {
-  return sign({ userId, jti }, EnvVars.JwtRefreshSecret, {
+const generateRefreshToken = (userID: string, jti: string): string => {
+  return sign({ userID, jti }, EnvVars.JwtRefreshSecret, {
     expiresIn: '8h',
   });
 };
 
-export const generateTokens = (userId: string, jti: string): TokenResponse => {
-  const accessToken = generateAccessToken(userId);
-  const refreshToken = generateRefreshToken(userId, jti);
+export const generateTokens = (userID: string, jti: string): TokenResponse => {
+  const accessToken = generateAccessToken(userID);
+  const refreshToken = generateRefreshToken(userID, jti);
 
   return { accessToken, refreshToken };
 };

@@ -16,13 +16,20 @@ async function main() {
       id: testUserId,
       email: 'hasan@tenurefi.com',
       password: '$2b$12$axvDaVkqcnnIMpVfUH7VRe6a.sbgdXds4glT.yef0X7JE/zdqv3YC',
+      name: 'Hasan',
+      dob: new Date().toISOString(),
+      location: 'here',
     },
   });
 
   const refreshTokenId = 'fdff662d-b466-4b62-8397-30aa33a02681';
-  const refreshToken = sign({ userId: testUserId, jti: refreshTokenId }, 'refreshsecret', {
-    expiresIn: '8h',
-  });
+  const refreshToken = sign(
+    { userID: testUserId, jti: refreshTokenId },
+    'refreshsecret',
+    {
+      expiresIn: '8h',
+    },
+  );
   const hashedToken = createHash('sha512').update(refreshToken).digest('hex');
 
   await prisma.refreshToken.upsert({
@@ -30,7 +37,7 @@ async function main() {
     update: {},
     create: {
       id: refreshTokenId,
-      userId: testUserId,
+      userID: testUserId,
       hashedToken,
     },
   });

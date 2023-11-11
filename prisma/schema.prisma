@@ -4,24 +4,112 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://postgres:123@localhost:5432/mydb?schema=tenurefi-server-node"
 }
 
 model User {
   id            String         @id @unique @default(uuid())
   email         String         @unique
   password      String
+  name          String?
+  dob           DateTime?      @db.Date
+  location      String?
+  companyID     BigInt?
+  companyRole   String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  Company       Company?       @relation(fields: [companyID], references: [id])
   refreshTokens RefreshToken[]
+  Wallet        Wallet?
+  SavingGoals   SavingGoal[]
+  Transactions  Transaction[]
+}
+
+model Company {
+  id        BigInt   @id @unique @default(autoincrement())
+  name      String
+  size      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User[]
+}
+
+model Wallet {
+  id        String   @id @unique
+  balance   Float
+  budget    Float
+  rounding  Float
+  userID    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User?    @relation(fields: [userID], references: [id], onDelete: Cascade)
+}
+
+model SavingGoal {
+  id         BigInt   @id @unique @default(autoincrement())
+  title      String
+  goal       Int      @db.Integer
+  percentage Int      @default(0) @db.SmallInt
+  userID     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  User       User     @relation(fields: [userID], references: [id])
+}
+
+model Transaction {
+  id        BigInt   @id @unique @default(autoincrement())
+  amount    Float
+  method    String
+  type      String
+  userID    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User     @relation(fields: [userID], references: [id])
+}
+
+model Deal {
+  id            BigInt      @id @unique @default(autoincrement())
+  title         String
+  description   String      @db.Text
+  startDate     DateTime    @db.Date
+  endDate       DateTime    @db.Date
+  days          String[]
+  reach         String
+  target        String
+  category      String
+  redemption    Redemption
+  clickURL      String?
+  trigger       Trigger
+  triggerAmount Float
+  triggerLimit  Int
+  triggerType   TriggerType
+  triggerReward Float
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model RefreshToken {
   id          String   @id @unique @default(uuid())
   hashedToken String
-  userId      String
+  userID      String
   revoked     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User        User     @relation(fields: [userID], references: [id], onDelete: Cascade)
+}
+
+enum Redemption {
+  CARD
+  CLICK
+}
+
+enum Trigger {
+  MIN_PURCHASE
+  CUMUL_PURCHASE
+  PURCHASE_FREQ
+}
+
+enum TriggerType {
+  CASH
+  PERCENTAGE
 }

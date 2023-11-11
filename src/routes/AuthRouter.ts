@@ -33,7 +33,7 @@ const RefreshTokenRequestSchema = Joi.object({
 
 interface IPayload extends JwtPayload {
   jti: string;
-  userId?: string;
+  userID?: string;
 }
 
 const Errors = {
@@ -45,7 +45,29 @@ const Errors = {
   Unauthorized: 'Unauthorized',
 };
 
-const authRouter = Router();
+export const AuthRouter = Router();
+
+export const createAccount = async (email: string, password: string) => {
+  const existingUser = await UserService.findUserByEmail(email);
+
+  if (existingUser) {
+    throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
+  }
+
+  const user = await UserService.createUserByEmailAndPassword({
+    email,
+    password,
+  });
+  const jti = uuidv4();
+  const { accessToken, refreshToken } = generateTokens(user.id, jti);
+  await AuthService.addRefreshTokenToWhitelist({
+    jti,
+    refreshToken,
+    userID: user.id,
+  });
+
+  return { accessToken, refreshToken };
+};
 
 /**
  * @swagger
@@ -86,7 +108,7 @@ const authRouter = Router();
  *       500:
  *         description: Internal server error
  */
-authRouter.post(
+AuthRouter.post(
   Paths.Auth.Register,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -99,23 +121,10 @@ authRouter.post(
       }
 
       const { email, password } = validationResult.value as AuthRequest;
-      const existingUser = await UserService.findUserByEmail(email);
-
-      if (existingUser) {
-        throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
-      }
-
-      const user = await UserService.createUserByEmailAndPassword({
+      const { accessToken, refreshToken } = await createAccount(
         email,
         password,
-      });
-      const jti = uuidv4();
-      const { accessToken, refreshToken } = generateTokens(user.id, jti);
-      await AuthService.addRefreshTokenToWhitelist({
-        jti,
-        refreshToken,
-        userId: user.id,
-      });
+      );
 
       return res.json({
         accessToken,
@@ -166,7 +175,7 @@ authRouter.post(
  *       500:
  *         description: Internal server error
  */
-authRouter.post(
+AuthRouter.post(
   Paths.Auth.Login,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -204,7 +213,7 @@ authRouter.post(
       await AuthService.addRefreshTokenToWhitelist({
         jti,
         refreshToken,
-        userId: existingUser.id,
+        userID: existingUser.id,
       });
 
       return res.json({
@@ -220,7 +229,7 @@ authRouter.post(
 
 /**
  * @swagger
- * /auth/refreshToken:
+ * /auth/refresh-token:
  *   post:
  *     summary: Refresh the access token using a refresh token
  *     tags: [Auth]
@@ -253,7 +262,7 @@ authRouter.post(
  *       500:
  *         description: Internal server error
  */
-authRouter.post(
+AuthRouter.post(
   Paths.Auth.RefreshToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -279,7 +288,7 @@ authRouter.post(
         throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
       }
 
-      const user = await UserService.findUserById(payload.userId);
+      const user = await UserService.findUserById(payload.userID);
       if (!user) {
         throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
       }
@@ -293,7 +302,7 @@ authRouter.post(
       await AuthService.addRefreshTokenToWhitelist({
         jti,
         refreshToken: newRefreshToken,
-        userId: user.id,
+        userID: user.id,
       });
 
       return res.json({
@@ -306,5 +315,3 @@ authRouter.post(
     }
   },
 );
-
-export default authRouter;

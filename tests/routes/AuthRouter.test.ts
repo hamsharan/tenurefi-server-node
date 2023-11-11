@@ -18,12 +18,12 @@ const password = '123456';
 const refreshTokenId = 'fdff662d-b466-4b62-8397-30aa33a02681';
 const refreshSecret = 'refreshsecret';
 const refreshToken = 'refreshToken';
-const userId = '1fb8cd91-40f1-419b-b9f9-a6873affe8ec';
+const userID = '1fb8cd91-40f1-419b-b9f9-a6873affe8ec';
 
-const correctToken = sign({ userId, jti: refreshTokenId }, refreshSecret, {
+const correctToken = sign({ userID, jti: refreshTokenId }, refreshSecret, {
   expiresIn: '8h',
 });
-const wrongToken = sign({ userId, jti: fakeTokenId }, refreshSecret, {
+const wrongToken = sign({ userID, jti: fakeTokenId }, refreshSecret, {
   expiresIn: '8h',
 });
 
@@ -196,7 +196,7 @@ describe('POST /auth/refreshToken', () => {
   });
 
   it('should throw an error if refreshToken hash is not the same as savedRefreshToken.hashedToken', async () => {
-    const testToken = sign({ userId, jti: fakeTokenId }, refreshSecret, {
+    const testToken = sign({ userID, jti: fakeTokenId }, refreshSecret, {
       expiresIn: '8h',
     });
 
@@ -215,7 +215,7 @@ describe('POST /auth/refreshToken', () => {
 
   it('should throw an error if user does not exist in the db', async () => {
     const testToken = sign(
-      { userId: 'fakeUserId', jti: refreshTokenId },
+      { userID: 'fakeUserId', jti: refreshTokenId },
       refreshSecret,
       { expiresIn: '8h' },
     );
