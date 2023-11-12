@@ -16,6 +16,8 @@ model User {
   location      String?
   companyID     BigInt?
   companyRole   String?
+  transferPin   Int?
+  image         String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   Company       Company?       @relation(fields: [companyID], references: [id])
@@ -23,6 +25,7 @@ model User {
   Wallet        Wallet?
   SavingGoals   SavingGoal[]
   Transactions  Transaction[]
+  Notifications Notification[]
 }
 
 model Company {
@@ -86,6 +89,17 @@ model Deal {
   triggerReward Float
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+model Notification {
+  id        BigInt   @id @unique @default(autoincrement())
+  title     String
+  content   String
+  dismissed Boolean  @default(false)
+  userID    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  User      User     @relation(fields: [userID], references: [id])
 }
 
 model RefreshToken {
