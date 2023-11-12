@@ -61,7 +61,7 @@ const AuthPayloadSchema = Joi.object({
 type Employee = {
   name: string;
   email: string;
-  dob: Date;
+  dob: string;
   location: string;
 };
 
@@ -76,8 +76,8 @@ type EmployeeRequest = {
 
 const EmployeeSchema = Joi.object({
   name: Joi.string().required(),
-  email: Joi.string().required(),
-  dob: Joi.date().required(),
+  email: Joi.string().email().required(),
+  dob: Joi.string().isoDate().required(),
   location: Joi.string().required(),
 });
 
@@ -97,6 +97,8 @@ const Errors = {
     `Error validating request body: ${JSON.stringify(error)}`,
   Unauthorized: 'Unauthorized',
   CompanyExists: 'Your company already exists',
+  EmailTaken: (email: string) =>
+    `The following emails are already associated with an account: ${email}`,
 };
 
 const companyRouter = Router();
@@ -350,6 +352,45 @@ companyRouter.get(
   },
 );
 
+/**
+ * @swagger
+ * /company/employee:
+ *  post:
+ *    summary: Creates new users associated with the company
+ *    tags: [Company]
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            type: object
+ *            required:
+ *              - employees
+ *            properties:
+ *              employees:
+ *                type: array
+ *                items:
+ *                  type: object
+ *                  properties:
+ *                    name:
+ *                      type: string
+ *                    email:
+ *                      type: string
+ *                    dob:
+ *                      type: string
+ *                      format: date
+ *                    location:
+ *                      type: string
+ *    responses:
+ *      200:
+ *        description: TBD
+ *      400:
+ *        description: Bad Request, missing fields or user is not employeer
+ *      401:
+ *        description: Unauthorized, invalid or no authentication token provided
+ *      500:
+ *        description: Internal Server Error
+ */
 companyRouter.post(
   Paths.Company.Employee,
   isAuthenticated,
@@ -371,6 +412,24 @@ companyRouter.post(
         throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.Unauthorized);
       }
 
+      const emails: string[] = [];
+      for (let i = 0; i < request.employees.length; i++) {
+        const employee = await UserService.findUserByEmail(
+          request.employees[i].email,
+        );
+        if (employee !== null) {
+          logger.imp(employee, true);
+          emails.push(request.employees[i].email);
+        }
+      }
+
+      if (emails.length > 0) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.EmailTaken(emails.join('; ')),
+        );
+      }
+
       request.employees.forEach(async (emp) => {
         const password = generator.generate({
           numbers: true,
@@ -383,7 +442,7 @@ companyRouter.post(
           EnvVars.JwtAccessSecret,
         ) as IPayload;
         await UserService.updateUser(
-          { ...emp, companyID: user.companyID! },
+          { ...emp, dob: new Date(emp.dob), companyID: user.companyID! },
           payload.userID!,
         );
 
