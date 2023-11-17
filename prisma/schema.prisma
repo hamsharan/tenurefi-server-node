@@ -39,9 +39,9 @@ model Company {
 
 model Wallet {
   id        String   @id @unique
-  balance   Float
-  budget    Float
-  rounding  Float
+  balance   Float    @default(0)
+  budget    Float    @default(0)
+  rounding  Float    @default(0)
   userID    String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
