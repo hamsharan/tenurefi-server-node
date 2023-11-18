@@ -8,6 +8,19 @@ import {
 
 import EnvVars from '@src/constants/EnvVars';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
+import Joi from 'joi';
+
+export type JWTAuthPayload = {
+  userID: string;
+  iat: number;
+  exp: number;
+};
+
+export const JWTAuthPayloadSchema = Joi.object().keys({
+  userID: Joi.string().required(),
+  iat: Joi.number().integer().required(),
+  exp: Joi.number().integer().required(),
+});
 
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   const { authorization } = req.headers;

@@ -8,6 +8,7 @@ import HttpStatusCode from '@src/constants/HttpStatusCode';
 import app from '@src/server';
 
 import prisma from '../helpers/prisma';
+import { hashToken } from '@src/utils/jwt';
 
 chai.use(chaiHttp);
 const { expect } = chai;
@@ -16,7 +17,7 @@ const email = 'hasan@tenurefi.com';
 const fakeTokenId = '57494ede-5da8-4cc9-8325-a1183513b313';
 const password = '123456';
 const refreshTokenId = 'fdff662d-b466-4b62-8397-30aa33a02681';
-const refreshSecret = 'refreshsecret';
+const refreshSecret = 'test';
 const refreshToken = 'refreshToken';
 const userID = '1fb8cd91-40f1-419b-b9f9-a6873affe8ec';
 
@@ -26,6 +27,7 @@ const correctToken = sign({ userID, jti: refreshTokenId }, refreshSecret, {
 const wrongToken = sign({ userID, jti: fakeTokenId }, refreshSecret, {
   expiresIn: '8h',
 });
+const hashedToken = hashToken(correctToken);
 
 describe('AuthRouter', () => {
   let chaiHttpResponse: Response;
@@ -127,13 +129,13 @@ describe('POST /auth/login', () => {
   });
 });
 
-describe('POST /auth/refreshToken', () => {
+describe('POST /auth/refresh-token', () => {
   let chaiHttpResponse: Response;
 
   it('should throw a validation error if an incorrect request body is provided', async () => {
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         token: refreshToken,
       });
@@ -147,7 +149,7 @@ describe('POST /auth/refreshToken', () => {
   it('should throw a JsonWebTokerError if JWT is malformed', async () => {
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         refreshToken,
       });
@@ -161,7 +163,7 @@ describe('POST /auth/refreshToken', () => {
   it('should throw an error if refreshToken does not exist', async () => {
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         refreshToken: wrongToken,
       });
@@ -184,7 +186,7 @@ describe('POST /auth/refreshToken', () => {
 
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         refreshToken: correctToken,
       });
@@ -202,7 +204,7 @@ describe('POST /auth/refreshToken', () => {
 
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         refreshToken: testToken,
       });
@@ -222,7 +224,7 @@ describe('POST /auth/refreshToken', () => {
 
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         refreshToken: testToken,
       });
@@ -239,13 +241,14 @@ describe('POST /auth/refreshToken', () => {
         id: refreshTokenId,
       },
       data: {
+        hashedToken: hashedToken,
         revoked: false,
       },
     });
 
     chaiHttpResponse = await chai
       .request(app)
-      .post('/api/auth/refreshToken')
+      .post('/api/auth/refresh-token')
       .send({
         refreshToken: correctToken,
       });

@@ -12,6 +12,7 @@ import AuthService from '@src/services/AuthService';
 import UserService from '@src/services/UserService';
 import { RouteError } from '@src/types/classes';
 import { hashToken, generateTokens } from 'src/utils/jwt';
+import EnvVars from '@src/constants/EnvVars';
 
 type AuthRequest = {
   email: string;
@@ -275,7 +276,10 @@ AuthRouter.post(
       }
 
       const { refreshToken } = validationResult.value as RefreshTokenRequest;
-      const payload = verify(refreshToken, '') as IPayload;
+      const payload = verify(
+        refreshToken,
+        EnvVars.JwtRefreshSecret,
+      ) as IPayload;
       const savedRefreshToken = await AuthService.findRefreshTokenById(
         payload.jti,
       );
@@ -315,3 +319,5 @@ AuthRouter.post(
     }
   },
 );
+
+export default AuthRouter;
