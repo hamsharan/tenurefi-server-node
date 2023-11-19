@@ -1,4 +1,5 @@
 import { hashSync } from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 
 import db from '@src/utils/db';
 
@@ -18,6 +19,7 @@ interface UpdateRequest {
 }
 
 const findUserByEmail = (email: string) => {
+  email = email.toLowerCase();
   return db.user.findUnique({
     where: {
       email,
@@ -26,6 +28,7 @@ const findUserByEmail = (email: string) => {
 };
 
 const createUserByEmailAndPassword = (data: RegisterRequest) => {
+  data.email = data.email.toLowerCase();
   data.password = hashSync(data.password, 12);
   return db.user.create({
     data,
@@ -49,8 +52,55 @@ const updateUser = (data: UpdateRequest, id: string) => {
     data.password = hashSync(data.password, 12);
   }
 
+  if (data.email) {
+    data.email = data.email.toLowerCase();
+  }
+
   return db.user.update({
     data,
+    where: {
+      id,
+    },
+  });
+};
+
+const createResetPasswordToken = async (id: string) => {
+  const resetPasswordToken = randomBytes(32).toString('hex');
+  const hashedToken = hashSync(resetPasswordToken, 12);
+  const expiryDate = new Date(new Date().setHours(new Date().getHours() + 1));
+  await db.user.update({
+    data: {
+      resetPassword: hashedToken,
+      resetPasswordAt: expiryDate.toISOString(),
+    },
+    where: {
+      id,
+    },
+  });
+  return resetPasswordToken;
+};
+
+const deleteResetPasswordToken = async (id: string) => {
+  return db.user.update({
+    data: {
+      resetPassword: null,
+      resetPasswordAt: null,
+    },
+    where: {
+      id,
+    },
+  });
+};
+
+const resetPassword = (password: string, id: string) => {
+  password = hashSync(password, 12);
+
+  return db.user.update({
+    data: {
+      password: password,
+      resetPassword: null,
+      resetPasswordAt: null,
+    },
     where: {
       id,
     },
@@ -62,4 +112,7 @@ export default {
   createUserByEmailAndPassword,
   findUserById,
   updateUser,
+  createResetPasswordToken,
+  deleteResetPasswordToken,
+  resetPassword,
 } as const;

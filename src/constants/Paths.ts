@@ -8,6 +8,8 @@ const Paths = {
     Logout: '/logout',
     Register: '/register',
     RefreshToken: '/refresh-token',
+    ForgotPassword: '/forgot-password',
+    ResetPassword: '/reset-password',
   },
   User: {
     Base: '/user',

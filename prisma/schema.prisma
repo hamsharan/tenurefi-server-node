@@ -8,24 +8,26 @@ datasource db {
 }
 
 model User {
-  id            String         @id @unique @default(uuid())
-  email         String         @unique
-  password      String
-  name          String?
-  dob           DateTime?      @db.Date
-  location      String?
-  companyID     BigInt?
-  companyRole   String?
-  transferPin   Int?
-  image         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  Company       Company?       @relation(fields: [companyID], references: [id])
-  refreshTokens RefreshToken[]
-  Wallet        Wallet?
-  SavingGoals   SavingGoal[]
-  Transactions  Transaction[]
-  Notifications Notification[]
+  id              String         @id @unique @default(uuid())
+  email           String         @unique
+  password        String
+  name            String?
+  dob             DateTime?      @db.Date
+  location        String?
+  companyID       BigInt?
+  companyRole     String?
+  transferPin     Int?
+  image           String?
+  resetPassword   String?
+  resetPasswordAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  Company         Company?       @relation(fields: [companyID], references: [id])
+  refreshTokens   RefreshToken[]
+  Wallet          Wallet?
+  SavingGoals     SavingGoal[]
+  Transactions    Transaction[]
+  Notifications   Notification[]
 }
 
 model Company {

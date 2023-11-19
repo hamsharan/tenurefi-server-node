@@ -1,7 +1,7 @@
 import { compare } from 'bcrypt';
 import { NextFunction, Request, Response, Router } from 'express';
 import logger from 'jet-logger';
-import Joi, { ValidationError } from 'joi';
+import Joi from 'joi';
 import { verify } from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,6 +13,7 @@ import UserService from '@src/services/UserService';
 import { RouteError } from '@src/types/classes';
 import { hashToken, generateTokens } from 'src/utils/jwt';
 import EnvVars from '@src/constants/EnvVars';
+import db from '@src/utils/db';
 
 type AuthRequest = {
   email: string;
@@ -32,18 +33,41 @@ const RefreshTokenRequestSchema = Joi.object({
   refreshToken: Joi.string().required(),
 });
 
+type ForgotPasswordRequest = {
+  email: string;
+};
+
+const ForgotPasswordRequestSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+type ResetPasswordRequest = {
+  resetPasswordToken: string;
+  userID: string;
+  password: string;
+};
+
+const ResetPasswordRequestSchema = Joi.object({
+  resetPasswordToken: Joi.string().required(),
+  userID: Joi.string().uuid({ version: 'uuidv4' }).required(),
+  password: Joi.string().required(),
+});
+
 interface IPayload extends JwtPayload {
   jti: string;
   userID?: string;
 }
 
 const Errors = {
-  RequestBody: (error: ValidationError) =>
-    `Error validating request body: ${JSON.stringify(error)}`,
+  RequestBody: (error: string) => `Error validating request body: ${error}`,
   UserExists: 'User already exists',
+  UserDoesNotExist: 'User does not exist',
   InvalidCredentials: 'Invalid login credentials',
   MissingRefreshToken: 'Missing refresh token',
   Unauthorized: 'Unauthorized',
+  ResetPasswordNotRequested: 'Password has not been initiated for reset',
+  InvalidPasswordToken: 'Invalid password token',
+  ResetPasswordPeriodElapsed: 'Password token has expired',
 };
 
 export const AuthRouter = Router();
@@ -55,19 +79,21 @@ export const createAccount = async (email: string, password: string) => {
     throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
   }
 
-  const user = await UserService.createUserByEmailAndPassword({
-    email,
-    password,
-  });
-  const jti = uuidv4();
-  const { accessToken, refreshToken } = generateTokens(user.id, jti);
-  await AuthService.addRefreshTokenToWhitelist({
-    jti,
-    refreshToken,
-    userID: user.id,
-  });
+  return await db.$transaction(async () => {
+    const user = await UserService.createUserByEmailAndPassword({
+      email,
+      password,
+    });
+    const jti = uuidv4();
+    const { accessToken, refreshToken } = generateTokens(user.id, jti);
+    await AuthService.addRefreshTokenToWhitelist({
+      jti,
+      refreshToken,
+      userID: user.id,
+    });
 
-  return { accessToken, refreshToken };
+    return { accessToken, refreshToken };
+  });
 };
 
 /**
@@ -117,7 +143,7 @@ AuthRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -184,7 +210,7 @@ AuthRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -222,7 +248,155 @@ AuthRouter.post(
         refreshToken,
       });
     } catch (err) {
-      logger.err(err, true);
+      next(err);
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Requests a users password to be reset
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: The user's email
+ *     responses:
+ *       200:
+ *         description: The user password reset request was successfully
+ *       400:
+ *         description: Bad Request, request body validation failed
+ *       403:
+ *         description: Forbidden, user doesn't exist
+ *       500:
+ *         description: Internal server error
+ */
+AuthRouter.post(
+  Paths.Auth.ForgotPassword,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = ForgotPasswordRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error.message),
+        );
+      }
+
+      const { email } = validationResult.value as ForgotPasswordRequest;
+
+      const user = await UserService.findUserByEmail(email);
+      if (!user) {
+        throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
+      }
+
+      const resetPasswordToken = await UserService.createResetPasswordToken(
+        user.id,
+      );
+
+      // mail password with url containing reset token.
+      logger.info(resetPasswordToken);
+
+      return res.json();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Resets a user's password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - resetPasswordToken
+ *               - userID
+ *               - password
+ *             properties:
+ *               resetPasswordToken:
+ *                 type: string
+ *                 description: The user's reset password token
+ *               userID:
+ *                 type: string
+ *                 description: The user's ID
+ *               password:
+ *                 type: string
+ *                 description: The user's new password
+ *     responses:
+ *       200:
+ *         description: The user password was successfully reset
+ *       400:
+ *         description: Bad Request, request body validation failed
+ *       403:
+ *         description: Forbidden, invalid or expired reset token
+ *       500:
+ *         description: Internal server error
+ */
+AuthRouter.post(
+  Paths.Auth.ResetPassword,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = ResetPasswordRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error.message),
+        );
+      }
+
+      const { resetPasswordToken, userID, password } =
+        validationResult.value as ResetPasswordRequest;
+
+      const user = await UserService.findUserById(userID);
+      if (!user) {
+        throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
+      }
+
+      if (!user.resetPassword) {
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.ResetPasswordNotRequested,
+        );
+      }
+
+      const isValid = await compare(resetPasswordToken, user.resetPassword);
+      if (!isValid) {
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.InvalidPasswordToken,
+        );
+      }
+
+      if (user.resetPasswordAt! < new Date()) {
+        await UserService.deleteResetPasswordToken(userID);
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.ResetPasswordPeriodElapsed,
+        );
+      }
+
+      await UserService.resetPassword(password, userID);
+
+      return res.json();
+    } catch (err) {
       next(err);
     }
   },
@@ -271,7 +445,7 @@ AuthRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -314,7 +488,6 @@ AuthRouter.post(
         refreshToken: newRefreshToken,
       });
     } catch (err) {
-      logger.err(err, true);
       next(err);
     }
   },
