@@ -13,10 +13,16 @@ const Paths = {
   },
   User: {
     Base: '/user',
+    ChangePassword: '/change-password',
   },
   Company: {
     Base: '/company',
     Employee: '/employee',
+  },
+  SavingGoal: {
+    Base: '/saving-goal',
+    ID: '/:id',
+    UserID: '/:userID',
   },
   ApiDocs: {
     Base: '/api-docs',
