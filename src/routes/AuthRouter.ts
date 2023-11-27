@@ -14,6 +14,7 @@ import { RouteError } from '@src/types/classes';
 import { hashToken, generateTokens } from 'src/utils/jwt';
 import EnvVars from '@src/constants/EnvVars';
 import db from '@src/utils/db';
+import MailerService from '@src/services/MailerService';
 
 type AuthRequest = {
   email: string;
@@ -60,9 +61,9 @@ interface IPayload extends JwtPayload {
 
 const Errors = {
   RequestBody: (error: string) => `Error validating request body: ${error}`,
-  UserExists: 'User already exists',
+  UserExists: 'An account is already associated with this email address',
   UserDoesNotExist: 'User does not exist',
-  InvalidCredentials: 'Invalid login credentials',
+  InvalidCredentials: 'Your email or password is incorrect',
   MissingRefreshToken: 'Missing refresh token',
   Unauthorized: 'Unauthorized',
   ResetPasswordNotRequested: 'Password has not been initiated for reset',
@@ -300,12 +301,16 @@ AuthRouter.post(
         throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
       }
 
-      const resetPasswordToken = await UserService.createResetPasswordToken(
-        user.id,
-      );
+      await db.$transaction(async () => {
+        const resetPasswordToken = await UserService.createResetPasswordToken(
+          user.id,
+        );
 
-      // mail password with url containing reset token.
-      logger.info(resetPasswordToken);
+        MailerService.sendMail(email, {
+          type: 'forgotpassword',
+          content: { resetPasswordToken, userID: user.id },
+        });
+      });
 
       return res.json();
     } catch (err) {

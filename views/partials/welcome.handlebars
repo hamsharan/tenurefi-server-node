@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #3F7A64;
+      color: black;
+      padding: 0;
+      font-family: sans-serif;
+    }
+    hr {
+     border: 1px solid #3F7A64;
+    }
+    p {
+      font-size: large;
+    }
+    .header {
+      text-align: center;
+      max-height: 8rem;
+    }
+    .body {
+      background-color: white;
+      padding: 1rem;
+      margin: 1rem 5rem;
+      border-radius: 5px;
+      min-width: 16rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <image src="https://www.tenurefi.com/wp-content/uploads/2023/03/tenure-logo-white-final.png" style="max-height: 8rem;"></image>
+  </div>
+  <div class="body">
+    <h2>You have been invited to Tenure by {{invitee}}</h2>
+    <p>Here are your credentials to login to our app. We recommend that you change your password to something more secure.</p>
+    <p>Email: {{email}}</p>
+    <p>Password: {{password}}</p>
+    <hr>
+    <footer>© Tenure</footer>
+  </div>
+</body>
+</html>
