@@ -57,7 +57,7 @@ const sendMail = (email: string, content: Content) => {
       to: email,
       subject:
         content.type === 'welcome' ? SUBJECT_WELCOME : SUBJECT_RESET_PASSWORD,
-      // @ts-ignore
+      // @ts-expect-error/not-typescript-ready
       template: content.type,
       context: content.content,
     },

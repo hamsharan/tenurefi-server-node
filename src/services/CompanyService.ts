@@ -1,26 +1,28 @@
 import db from '@src/utils/db';
 
 interface CompanyRequest {
-  name: string;
-  size: string;
+  name?: string;
+  size?: string;
 }
 
-const createCompanyByNameAndSize = (data: CompanyRequest, id: string) => {
-  return db.company.create({
-    data: {
-      name: data.name,
-      size: data.size,
-      User: {
-        connect: {
-          id,
+const createCompanyByNameAndSize = async (data: CompanyRequest, id: string) => {
+  if (data.name && data.size) {
+    return await db.company.create({
+      data: {
+        name: data.name,
+        size: data.size,
+        User: {
+          connect: {
+            id,
+          },
         },
       },
-    },
-  });
+    });
+  }
 };
 
-const updateCompany = (data: CompanyRequest, id: bigint) => {
-  return db.company.update({
+const updateCompany = async (data: CompanyRequest, id: bigint) => {
+  return await db.company.update({
     data,
     where: {
       id,
@@ -28,8 +30,8 @@ const updateCompany = (data: CompanyRequest, id: bigint) => {
   });
 };
 
-const getCompanyEmployees = (companyID: bigint) => {
-  return db.user.findMany({
+const getCompanyEmployees = async (companyID: bigint) => {
+  return await db.user.findMany({
     where: {
       companyID,
     },

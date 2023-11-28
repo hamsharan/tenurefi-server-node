@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction, Router } from 'express';
 import logger from 'jet-logger';
-import Joi, { ValidationError } from 'joi';
+import Joi from 'joi';
 import generator from 'generate-password';
 
-import isAuthenticated from './middleware/isAuthenticated';
-import { RouteError } from '@src/types/classes';
+import isAuthenticated, {
+  JWTAuthPayload,
+  JWTAuthPayloadSchema,
+} from './middleware/isAuthenticated';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
 import UserService from '@src/services/UserService';
 import CompanyService from '@src/services/CompanyService';
@@ -12,6 +14,9 @@ import Paths from '@src/constants/Paths';
 import { createAccount } from './AuthRouter';
 import { JwtPayload, verify } from 'jsonwebtoken';
 import EnvVars from '@src/constants/EnvVars';
+import db from '@src/utils/db';
+import { RouteError } from '@src/types/classes';
+import MailerService from '@src/services/MailerService';
 
 interface IPayload extends JwtPayload {
   jti: string;
@@ -21,41 +26,21 @@ interface IPayload extends JwtPayload {
 type CompanyRequest = {
   name: string;
   size: string;
-  payload: {
-    userID: string;
-    iat: number;
-    exp: number;
-  };
+  payload: JWTAuthPayload;
 };
 
 const CompanyRequestSchema = Joi.object({
   name: Joi.string().required(),
   size: Joi.string().required(),
-  payload: Joi.object()
-    .keys({
-      userID: Joi.string().required(),
-      iat: Joi.number().required(),
-      exp: Joi.number().required(),
-    })
-    .required(),
+  payload: JWTAuthPayloadSchema,
 });
 
 type AuthPayload = {
-  payload: {
-    userID: string;
-    iat: number;
-    exp: number;
-  };
+  payload: JWTAuthPayload;
 };
 
 const AuthPayloadSchema = Joi.object({
-  payload: Joi.object()
-    .keys({
-      userID: Joi.string().required(),
-      iat: Joi.number().required(),
-      exp: Joi.number().required(),
-    })
-    .required(),
+  payload: JWTAuthPayloadSchema,
 });
 
 type Employee = {
@@ -67,11 +52,7 @@ type Employee = {
 
 type EmployeeRequest = {
   employees: Employee[];
-  payload: {
-    userID: string;
-    iat: number;
-    exp: number;
-  };
+  payload: JWTAuthPayload;
 };
 
 const EmployeeSchema = Joi.object({
@@ -83,17 +64,11 @@ const EmployeeSchema = Joi.object({
 
 const EmployeeRequestSchema = Joi.object({
   employees: Joi.array().items(EmployeeSchema),
-  payload: Joi.object()
-    .keys({
-      userID: Joi.string().required(),
-      iat: Joi.number().required(),
-      exp: Joi.number().required(),
-    })
-    .required(),
+  payload: JWTAuthPayloadSchema,
 });
 
 const Errors = {
-  RequestBody: (error: ValidationError) =>
+  RequestBody: (error: string) =>
     `Error validating request body: ${JSON.stringify(error)}`,
   Unauthorized: 'Unauthorized',
   CompanyExists: 'Your company already exists',
@@ -155,7 +130,7 @@ companyRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -164,7 +139,16 @@ companyRouter.post(
       const userID = request.payload.userID;
       const user = await UserService.findUserById(userID);
       if (user?.companyID) {
-        throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.CompanyExists);
+        const company = await CompanyService.updateCompany(
+          { name: request.name, size: request.size },
+          user.companyID,
+        );
+
+        return res.json({
+          id: company.id,
+          name: company.name,
+          size: company.size,
+        });
       }
 
       const company = await CompanyService.createCompanyByNameAndSize(
@@ -174,6 +158,10 @@ companyRouter.post(
         },
         userID,
       );
+
+      if (!company) {
+        throw new RouteError(HttpStatusCode.BAD_REQUEST, 'Body missing fields');
+      }
 
       return res.json({
         id: company.id,
@@ -239,7 +227,7 @@ companyRouter.put(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -319,7 +307,7 @@ companyRouter.get(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -400,26 +388,23 @@ companyRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
-      const request = validationResult.value as EmployeeRequest;
+      const { employees, payload } = validationResult.value as EmployeeRequest;
 
-      const userID = request.payload.userID;
+      const userID = payload.userID;
       const user = await UserService.findUserById(userID);
       if (!user?.companyID || !user.companyRole) {
         throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.Unauthorized);
       }
 
       const emails: string[] = [];
-      for (let i = 0; i < request.employees.length; i++) {
-        const employee = await UserService.findUserByEmail(
-          request.employees[i].email,
-        );
-        if (employee !== null) {
-          logger.imp(employee, true);
-          emails.push(request.employees[i].email);
+      for (let i = 0; i < employees.length; i++) {
+        const employee = await UserService.findUserByEmail(employees[i].email);
+        if (employee) {
+          emails.push(employees[i].email);
         }
       }
 
@@ -430,23 +415,41 @@ companyRouter.post(
         );
       }
 
-      request.employees.forEach(async (emp) => {
-        const password = generator.generate({
-          numbers: true,
-          symbols: true,
-          strict: true,
-        });
-        const { accessToken } = await createAccount(emp.email, password);
-        const payload = verify(
-          accessToken,
-          EnvVars.JwtAccessSecret,
-        ) as IPayload;
-        await UserService.updateUser(
-          { ...emp, dob: new Date(emp.dob), companyID: user.companyID! },
-          payload.userID!,
-        );
+      await db.$transaction(async () => {
+        for (let i = 0; i < employees.length; i++) {
+          const password = generator.generate({
+            numbers: true,
+            symbols: true,
+            strict: true,
+          });
+          const { accessToken } = await createAccount(
+            employees[i].email,
+            password,
+          );
+          const payload = verify(
+            accessToken,
+            EnvVars.JwtAccessSecret,
+          ) as IPayload;
+          await UserService.updateUser(
+            {
+              ...employees[i],
+              dob: new Date(employees[i].dob),
+              companyID: user.companyID!,
+            },
+            payload.userID!,
+          );
 
-        // TODO: Setup mailer
+          MailerService.sendMail(employees[i].email, {
+            type: 'welcome',
+            content: {
+              invitee: user.email,
+              name: employees[i].name,
+              email: employees[i].email,
+              password,
+            },
+          });
+        }
+        return Promise.resolve();
       });
 
       return res.json();
