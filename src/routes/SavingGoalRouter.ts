@@ -7,7 +7,7 @@ import isAuthenticated, {
 import Joi from 'joi';
 import { RouteError } from '@src/types/classes';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
-import SavingGoalService, { SavingGoal } from '@src/services/SavingGoalService';
+import SavingGoalService, { CreateSavingGoal, UpdateSavingGoal } from '@src/services/SavingGoalService';
 import UserService from '@src/services/UserService';
 
 type AuthPayload = {
@@ -19,7 +19,7 @@ const AuthPayloadSchema = Joi.object({
 });
 
 type SavingGoalRequest = {
-  savingGoals: SavingGoal[];
+  savingGoals: CreateSavingGoal[];
   payload: JWTAuthPayload;
 };
 
@@ -52,17 +52,16 @@ const UserIDSavingGoalRequestSchema = Joi.object({
 });
 
 type UpdateSavingGoalRequest = {
-  savingGoal: SavingGoal;
+  savingGoal: UpdateSavingGoal;
   payload: JWTAuthPayload;
 };
 
 const UpdateSavingGoalRequestSchema = Joi.object({
   savingGoal: Joi.object()
     .keys({
-      id: Joi.number().required(),
-      title: Joi.string().required(),
-      goal: Joi.number().integer().min(1).required(),
-      percentage: Joi.number().integer().min(0).max(100).required(),
+      title: Joi.string(),
+      goal: Joi.number().integer().min(1),
+      percentage: Joi.number().integer().min(0).max(100),
     })
     .required(),
   payload: JWTAuthPayloadSchema,
@@ -318,7 +317,7 @@ savingGoalRouter.get(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -378,14 +377,21 @@ savingGoalRouter.post(
 
 /**
  * @swagger
- * /saving-goal:
+ * /saving-goal/{id}:
  *   put:
- *     summary: Creates saving goals for the current user
+ *     summary: Updates saving goals for the current user
  *     tags: [Saving Goal]
+ *     parameters:
+ *       path:
+ *         name: id
+ *         schema:
+ *           type: integer
+ *           required: true
+ *           description: Numeric ID of the saving goal to get
  *     requestBody:
  *       required: true
  *       content:
- *         application/json
+ *         application/json:
  *           schema:
  *             type: object
  *             required:
@@ -393,11 +399,7 @@ savingGoalRouter.post(
  *             properties:
  *               savingGoals:
  *                 type: object
- *                 required:
- *                   - id
  *                 properties:
- *                   id:
- *                     type: number
  *                   title:
  *                     type: string
  *                   goal:
@@ -419,23 +421,33 @@ savingGoalRouter.put(
   isAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validationResult = UpdateSavingGoalRequestSchema.validate(req.body);
-      if (validationResult.error) {
+      const validationResultBody = UpdateSavingGoalRequestSchema.validate(req.body);
+      if (validationResultBody.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error.message),
+          Errors.RequestBody(validationResultBody.error.message),
+        );
+      }
+
+      const validationResultParam = IDSavingGoalRequestSchema.validate(
+        req.params,
+      );
+      if (validationResultParam.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResultParam.error.message),
         );
       }
 
       const { savingGoal, payload } =
-        validationResult.value as UpdateSavingGoalRequest;
-      const userID = payload.userID;
-      const user = await UserService.findUserById(userID);
+        validationResultBody.value as UpdateSavingGoalRequest;
+      const { id } = validationResultParam.value as IDSavingGoalRequest;
+
+      const user = await UserService.findUserById(payload.userID);
       if (!user) {
         throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
       }
 
-      const { id, ...data } = savingGoal;
       if (!id) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
@@ -443,7 +455,7 @@ savingGoalRouter.put(
         );
       }
 
-      await SavingGoalService.updateSavingGoal(data, id);
+      await SavingGoalService.updateSavingGoal(savingGoal, id);
 
       return res.json();
     } catch (err) {

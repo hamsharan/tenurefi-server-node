@@ -44,6 +44,14 @@ const findUserById = (id: string | undefined) => {
     where: {
       id,
     },
+    include: {
+      Company: {
+        select: {
+          name: true,
+          size: true,
+        },
+      },
+    },
   });
 };
 

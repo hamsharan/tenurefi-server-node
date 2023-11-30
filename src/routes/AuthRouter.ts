@@ -1,6 +1,5 @@
 import { compare } from 'bcrypt';
 import { NextFunction, Request, Response, Router } from 'express';
-import logger from 'jet-logger';
 import Joi from 'joi';
 import { verify } from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';

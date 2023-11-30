@@ -1,10 +1,16 @@
 import db from '@src/utils/db';
 
-export interface SavingGoal {
+export interface CreateSavingGoal {
   id?: bigint;
   title: string;
   goal: number;
   percentage: number;
+}
+
+export interface UpdateSavingGoal {
+  title?: string;
+  goal?: number;
+  percentage?: number;
 }
 
 const getSavingGoal = async (id: bigint) => {
@@ -29,7 +35,7 @@ const getSavingGoals = async (userID: string) => {
   });
 };
 
-const createServiceGoal = async (data: SavingGoal[], userID: string) => {
+const createServiceGoal = async (data: CreateSavingGoal[], userID: string) => {
   const goals = data.map((g) => ({ ...g, userID }));
   return await db.savingGoal.createMany({
     data: goals,
@@ -37,7 +43,7 @@ const createServiceGoal = async (data: SavingGoal[], userID: string) => {
   });
 };
 
-const updateSavingGoal = async (data: SavingGoal, id: bigint) => {
+const updateSavingGoal = async (data: UpdateSavingGoal, id: bigint) => {
   return await db.savingGoal.update({
     data: data,
     where: {
