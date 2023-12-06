@@ -7,7 +7,10 @@ import isAuthenticated, {
 import Joi from 'joi';
 import { RouteError } from '@src/types/classes';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
-import SavingGoalService, { CreateSavingGoal, UpdateSavingGoal } from '@src/services/SavingGoalService';
+import SavingGoalService, {
+  CreateSavingGoal,
+  UpdateSavingGoal,
+} from '@src/services/SavingGoalService';
 import UserService from '@src/services/UserService';
 
 type AuthPayload = {
@@ -23,15 +26,15 @@ type SavingGoalRequest = {
   payload: JWTAuthPayload;
 };
 
+const GoalsSchema = Joi.object({
+  id: Joi.number(),
+  title: Joi.string().required(),
+  goal: Joi.number().integer().min(1).required(),
+  percentage: Joi.number().integer().min(0).max(100).required(),
+});
+
 const SavingGoalRequestSchema = Joi.object({
-  savingGoal: Joi.object()
-    .keys({
-      id: Joi.number(),
-      title: Joi.string().required(),
-      goal: Joi.number().integer().min(1).required(),
-      percentage: Joi.number().integer().min(0).max(100).required(),
-    })
-    .required(),
+  savingGoals: Joi.array().items(GoalsSchema).required(),
   payload: JWTAuthPayloadSchema,
 });
 
@@ -345,7 +348,7 @@ savingGoalRouter.get(
  *         description: Internal server error
  */
 savingGoalRouter.post(
-  Paths.SavingGoal.Base,
+  '/',
   isAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -421,7 +424,9 @@ savingGoalRouter.put(
   isAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validationResultBody = UpdateSavingGoalRequestSchema.validate(req.body);
+      const validationResultBody = UpdateSavingGoalRequestSchema.validate(
+        req.body,
+      );
       if (validationResultBody.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
