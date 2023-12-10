@@ -31,6 +31,7 @@ const GoalsSchema = Joi.object({
   title: Joi.string().required(),
   goal: Joi.number().integer().min(1).required(),
   percentage: Joi.number().integer().min(0).max(100).required(),
+  priority: Joi.number().integer()
 });
 
 const SavingGoalRequestSchema = Joi.object({
@@ -369,9 +370,9 @@ savingGoalRouter.post(
         throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
       }
 
-      await SavingGoalService.createServiceGoal(savingGoals, userID);
+      let x = await SavingGoalService.createServiceGoal(savingGoals, userID);
 
-      return res.json();
+      return res.json(x);
     } catch (err) {
       next(err);
     }

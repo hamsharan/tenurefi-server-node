@@ -5,6 +5,7 @@ export interface CreateSavingGoal {
   title: string;
   goal: number;
   percentage: number;
+  priority: number;
 }
 
 export interface UpdateSavingGoal {

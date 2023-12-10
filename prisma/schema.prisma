@@ -58,6 +58,7 @@ model SavingGoal {
   userID     String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  priority   Int
   User       User     @relation(fields: [userID], references: [id])
 }
 

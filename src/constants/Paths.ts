@@ -24,12 +24,18 @@ const Paths = {
     ID: '/:id',
     UserID: '/:userID',
   },
+  Contribution: {
+    Base: '/contribution',
+    Gift: '/gift',
+    GiftAll:'giftAll'
+  },
   ApiDocs: {
     Base: '/api-docs',
   },
   BullBoard: {
     Base: '/bull-board',
   },
+  
 };
 
 export type TPaths = Immutable<typeof Paths>;
