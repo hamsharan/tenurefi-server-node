@@ -11,7 +11,7 @@ export interface CreateSavingGoal {
 export interface UpdateSavingGoal {
   title?: string;
   goal?: number;
-  percentage?: number;
+  progress?: number;
 }
 
 const getSavingGoal = async (id: bigint) => {
@@ -32,9 +32,23 @@ const getSavingGoals = async (userID: string) => {
       title: true,
       goal: true,
       percentage: true,
+      progress: true,
+      priority: true
     },
+    orderBy: [
+      {
+        priority: 'asc',
+      },
+      
+    ],
   });
 };
+
+const getAllSavingGoalsForEmployeesSortedByPriority = async (employeeIds: string[]) => {
+  return await db.savingGoal.findMany({
+      where: { userID: { in: employeeIds } },
+  });
+}
 
 const createServiceGoal = async (data: CreateSavingGoal[], userID: string) => {
   const goals = data.map((g) => ({ ...g, userID }));
@@ -46,6 +60,14 @@ const createServiceGoal = async (data: CreateSavingGoal[], userID: string) => {
 
 const updateSavingGoal = async (data: UpdateSavingGoal, id: bigint) => {
   return await db.savingGoal.update({
+    data: data,
+    where: {
+      id,
+    },
+  });
+};
+const aUpdateSavingGoal =  (data: UpdateSavingGoal, id: bigint) => {
+  return db.savingGoal.update({
     data: data,
     where: {
       id,
@@ -67,4 +89,6 @@ export default {
   createServiceGoal,
   updateSavingGoal,
   deleteSavingGoal,
+  getAllSavingGoalsForEmployeesSortedByPriority,
+  aUpdateSavingGoal
 } as const;

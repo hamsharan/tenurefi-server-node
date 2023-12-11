@@ -53,6 +53,7 @@ model Wallet {
 model SavingGoal {
   id         BigInt   @id @unique @default(autoincrement())
   title      String
+  progress   Float    @default(0)
   goal       Int      @db.Integer
   percentage Int      @default(0) @db.SmallInt
   userID     String

@@ -27,7 +27,7 @@ const Paths = {
   Contribution: {
     Base: '/contribution',
     Gift: '/gift',
-    GiftAll:'giftAll'
+    GiftAll:'/giftAll'
   },
   ApiDocs: {
     Base: '/api-docs',
