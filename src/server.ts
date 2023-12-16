@@ -23,8 +23,8 @@ import { basicAuthMiddleware } from '@src/routes/middleware/basicAuth';
 import QueueService from '@src/services/QueueService';
 import { RouteError } from '@src/types/classes';
 import redisClient from '@src/utils/redis';
-
 const app = express();
+const cookieParser = require('cookie-parser');
 
 const queueService = QueueService.getInstance();
 const defaultQueue = queueService.getQueue(Queues.DEFAULT);
@@ -35,10 +35,17 @@ BigInt.prototype.toJSON = function () {
   return parseInt(this.toString());
 };
 
+app.use(cookieParser()); 
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
 app.use(passport.initialize());
+
+app.use(cors({
+  origin: 'http://localhost:5173', // or wherever your React app is served from
+  credentials: true
+}));
+
 
 if (EnvVars.NodeEnv === Environments.Development) {
   app.use(morgan('dev'));
@@ -78,6 +85,8 @@ if (defaultQueue) {
     serverAdapter.getRouter() as Router,
   );
 }
+
+
 
 app.use(
   Paths.ApiDocs.Base,

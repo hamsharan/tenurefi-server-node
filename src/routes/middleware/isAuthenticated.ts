@@ -23,16 +23,17 @@ export const JWTAuthPayloadSchema = Joi.object().keys({
 });
 
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
-  const { authorization } = req.headers;
-
-  if (!authorization) {
+  const token = req.cookies.token;
+  console.log('authorization', req.cookies.token);
+  if (!token) {
     return res.status(HttpStatusCode.UNAUTHORIZED).json({
       error: 'Unauthorized',
     });
   }
 
   try {
-    const token = authorization.split(' ')[1];
+    // const token = authorization;
+    console.log('token', token);
     const payload = verify(token, EnvVars.JwtAccessSecret);
     req.body = {
       ...req.body,
