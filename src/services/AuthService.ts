@@ -4,18 +4,18 @@ import { hashToken } from 'src/utils/jwt';
 interface AddRefreshTokenRequest {
   jti: string;
   refreshToken: string;
-  userId: string;
+  userID: string;
 }
 
 const addRefreshTokenToWhitelist = (data: AddRefreshTokenRequest) => {
-  const { jti: id, refreshToken, userId } = data;
+  const { jti: id, refreshToken, userID } = data;
   const hashedToken = hashToken(refreshToken);
 
   return db.refreshToken.create({
     data: {
       id,
       hashedToken,
-      userId,
+      userID,
     },
   });
 };
@@ -36,10 +36,10 @@ const deleteRefreshTokenById = (id: string) => {
   });
 };
 
-const revokeTokensForUser = (userId: string) => {
+const revokeTokensForUser = (userID: string) => {
   return db.refreshToken.updateMany({
     where: {
-      userId,
+      userID,
     },
     data: {
       revoked: true,

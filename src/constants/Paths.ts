@@ -8,6 +8,26 @@ const Paths = {
     Logout: '/logout',
     Register: '/register',
     RefreshToken: '/refresh-token',
+    ForgotPassword: '/forgot-password',
+    ResetPassword: '/reset-password',
+  },
+  User: {
+    Base: '/user',
+    ChangePassword: '/change-password',
+  },
+  Company: {
+    Base: '/company',
+    Employee: '/employee',
+  },
+  SavingGoal: {
+    Base: '/saving-goal',
+    ID: '/:id',
+    UserID: '/:userID',
+  },
+  Contribution: {
+    Base: '/contribution',
+    Gift: '/gift',
+    GiftAll:'/giftAll'
   },
   ApiDocs: {
     Base: '/api-docs',
@@ -15,6 +35,7 @@ const Paths = {
   BullBoard: {
     Base: '/bull-board',
   },
+  
 };
 
 export type TPaths = Immutable<typeof Paths>;

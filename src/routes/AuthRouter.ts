@@ -1,7 +1,6 @@
 import { compare } from 'bcrypt';
 import { NextFunction, Request, Response, Router } from 'express';
-import logger from 'jet-logger';
-import Joi, { ValidationError } from 'joi';
+import Joi from 'joi';
 import { verify } from 'jsonwebtoken';
 import type { JwtPayload } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,6 +11,9 @@ import AuthService from '@src/services/AuthService';
 import UserService from '@src/services/UserService';
 import { RouteError } from '@src/types/classes';
 import { hashToken, generateTokens } from 'src/utils/jwt';
+import EnvVars from '@src/constants/EnvVars';
+import db from '@src/utils/db';
+import MailerService from '@src/services/MailerService';
 
 type AuthRequest = {
   email: string;
@@ -31,21 +33,68 @@ const RefreshTokenRequestSchema = Joi.object({
   refreshToken: Joi.string().required(),
 });
 
+type ForgotPasswordRequest = {
+  email: string;
+};
+
+const ForgotPasswordRequestSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+type ResetPasswordRequest = {
+  resetPasswordToken: string;
+  userID: string;
+  password: string;
+};
+
+const ResetPasswordRequestSchema = Joi.object({
+  resetPasswordToken: Joi.string().required(),
+  userID: Joi.string().uuid({ version: 'uuidv4' }).required(),
+  password: Joi.string().required(),
+});
+
 interface IPayload extends JwtPayload {
   jti: string;
-  userId?: string;
+  userID?: string;
 }
 
 const Errors = {
-  RequestBody: (error: ValidationError) =>
-    `Error validating request body: ${JSON.stringify(error)}`,
-  UserExists: 'User already exists',
-  InvalidCredentials: 'Invalid login credentials',
+  RequestBody: (error: string) => `Error validating request body: ${error}`,
+  UserExists: 'An account is already associated with this email address',
+  UserDoesNotExist: 'User does not exist',
+  InvalidCredentials: 'Your email or password is incorrect',
   MissingRefreshToken: 'Missing refresh token',
   Unauthorized: 'Unauthorized',
+  ResetPasswordNotRequested: 'Password has not been initiated for reset',
+  InvalidPasswordToken: 'Invalid password token',
+  ResetPasswordPeriodElapsed: 'Password token has expired',
 };
 
-const authRouter = Router();
+export const AuthRouter = Router();
+
+export const createAccount = async (email: string, password: string) => {
+  const existingUser = await UserService.findUserByEmail(email);
+
+  if (existingUser) {
+    throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
+  }
+
+  return await db.$transaction(async () => {
+    const user = await UserService.createUserByEmailAndPassword({
+      email,
+      password,
+    });
+    const jti = uuidv4();
+    const { accessToken, refreshToken } = generateTokens(user.id, jti);
+    await AuthService.addRefreshTokenToWhitelist({
+      jti,
+      refreshToken,
+      userID: user.id,
+    });
+
+    return { accessToken, refreshToken };
+  });
+};
 
 /**
  * @swagger
@@ -86,7 +135,7 @@ const authRouter = Router();
  *       500:
  *         description: Internal server error
  */
-authRouter.post(
+AuthRouter.post(
   Paths.Auth.Register,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -94,28 +143,15 @@ authRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
       const { email, password } = validationResult.value as AuthRequest;
-      const existingUser = await UserService.findUserByEmail(email);
-
-      if (existingUser) {
-        throw new RouteError(HttpStatusCode.BAD_REQUEST, Errors.UserExists);
-      }
-
-      const user = await UserService.createUserByEmailAndPassword({
+      const { accessToken, refreshToken } = await createAccount(
         email,
         password,
-      });
-      const jti = uuidv4();
-      const { accessToken, refreshToken } = generateTokens(user.id, jti);
-      await AuthService.addRefreshTokenToWhitelist({
-        jti,
-        refreshToken,
-        userId: user.id,
-      });
+      );
 
       return res.json({
         accessToken,
@@ -166,7 +202,7 @@ authRouter.post(
  *       500:
  *         description: Internal server error
  */
-authRouter.post(
+AuthRouter.post(
   Paths.Auth.Login,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -174,7 +210,7 @@ authRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
@@ -204,7 +240,7 @@ authRouter.post(
       await AuthService.addRefreshTokenToWhitelist({
         jti,
         refreshToken,
-        userId: existingUser.id,
+        userID: existingUser.id,
       });
 
       return res.json({
@@ -212,7 +248,6 @@ authRouter.post(
         refreshToken,
       });
     } catch (err) {
-      logger.err(err, true);
       next(err);
     }
   },
@@ -220,7 +255,160 @@ authRouter.post(
 
 /**
  * @swagger
- * /auth/refreshToken:
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Requests a users password to be reset
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: The user's email
+ *     responses:
+ *       200:
+ *         description: The user password reset request was successfully
+ *       400:
+ *         description: Bad Request, request body validation failed
+ *       403:
+ *         description: Forbidden, user doesn't exist
+ *       500:
+ *         description: Internal server error
+ */
+AuthRouter.post(
+  Paths.Auth.ForgotPassword,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = ForgotPasswordRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error.message),
+        );
+      }
+
+      const { email } = validationResult.value as ForgotPasswordRequest;
+
+      const user = await UserService.findUserByEmail(email);
+      if (!user) {
+        throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
+      }
+
+      await db.$transaction(async () => {
+        const resetPasswordToken = await UserService.createResetPasswordToken(
+          user.id,
+        );
+
+        MailerService.sendMail(email, {
+          type: 'forgotpassword',
+          content: { resetPasswordToken, userID: user.id },
+        });
+      });
+
+      return res.json();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /auth/reset-password:
+ *   post:
+ *     summary: Resets a user's password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - resetPasswordToken
+ *               - userID
+ *               - password
+ *             properties:
+ *               resetPasswordToken:
+ *                 type: string
+ *                 description: The user's reset password token
+ *               userID:
+ *                 type: string
+ *                 description: The user's ID
+ *               password:
+ *                 type: string
+ *                 description: The user's new password
+ *     responses:
+ *       200:
+ *         description: The user password was successfully reset
+ *       400:
+ *         description: Bad Request, request body validation failed
+ *       403:
+ *         description: Forbidden, invalid or expired reset token
+ *       500:
+ *         description: Internal server error
+ */
+AuthRouter.post(
+  Paths.Auth.ResetPassword,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validationResult = ResetPasswordRequestSchema.validate(req.body);
+      if (validationResult.error) {
+        throw new RouteError(
+          HttpStatusCode.BAD_REQUEST,
+          Errors.RequestBody(validationResult.error.message),
+        );
+      }
+
+      const { resetPasswordToken, userID, password } =
+        validationResult.value as ResetPasswordRequest;
+
+      const user = await UserService.findUserById(userID);
+      if (!user) {
+        throw new RouteError(HttpStatusCode.FORBIDDEN, Errors.UserDoesNotExist);
+      }
+
+      if (!user.resetPassword) {
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.ResetPasswordNotRequested,
+        );
+      }
+
+      const isValid = await compare(resetPasswordToken, user.resetPassword);
+      if (!isValid) {
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.InvalidPasswordToken,
+        );
+      }
+
+      if (user.resetPasswordAt! < new Date()) {
+        await UserService.deleteResetPasswordToken(userID);
+        throw new RouteError(
+          HttpStatusCode.FORBIDDEN,
+          Errors.ResetPasswordPeriodElapsed,
+        );
+      }
+
+      await UserService.resetPassword(password, userID);
+
+      return res.json();
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+/**
+ * @swagger
+ * /auth/refresh-token:
  *   post:
  *     summary: Refresh the access token using a refresh token
  *     tags: [Auth]
@@ -253,7 +441,7 @@ authRouter.post(
  *       500:
  *         description: Internal server error
  */
-authRouter.post(
+AuthRouter.post(
   Paths.Auth.RefreshToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -261,12 +449,15 @@ authRouter.post(
       if (validationResult.error) {
         throw new RouteError(
           HttpStatusCode.BAD_REQUEST,
-          Errors.RequestBody(validationResult.error),
+          Errors.RequestBody(validationResult.error.message),
         );
       }
 
       const { refreshToken } = validationResult.value as RefreshTokenRequest;
-      const payload = verify(refreshToken, '') as IPayload;
+      const payload = verify(
+        refreshToken,
+        EnvVars.JwtRefreshSecret,
+      ) as IPayload;
       const savedRefreshToken = await AuthService.findRefreshTokenById(
         payload.jti,
       );
@@ -279,7 +470,7 @@ authRouter.post(
         throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
       }
 
-      const user = await UserService.findUserById(payload.userId);
+      const user = await UserService.findUserById(payload.userID);
       if (!user) {
         throw new RouteError(HttpStatusCode.UNAUTHORIZED, Errors.Unauthorized);
       }
@@ -293,7 +484,7 @@ authRouter.post(
       await AuthService.addRefreshTokenToWhitelist({
         jti,
         refreshToken: newRefreshToken,
-        userId: user.id,
+        userID: user.id,
       });
 
       return res.json({
@@ -301,10 +492,9 @@ authRouter.post(
         refreshToken: newRefreshToken,
       });
     } catch (err) {
-      logger.err(err, true);
       next(err);
     }
   },
 );
 
-export default authRouter;
+export default AuthRouter;

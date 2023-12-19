@@ -1,8 +1,26 @@
 import { Request, Response, NextFunction } from 'express';
-import { verify } from 'jsonwebtoken';
+import {
+  JsonWebTokenError,
+  NotBeforeError,
+  TokenExpiredError,
+  verify,
+} from 'jsonwebtoken';
 
 import EnvVars from '@src/constants/EnvVars';
 import HttpStatusCode from '@src/constants/HttpStatusCode';
+import Joi from 'joi';
+
+export type JWTAuthPayload = {
+  userID: string;
+  iat: number;
+  exp: number;
+};
+
+export const JWTAuthPayloadSchema = Joi.object().keys({
+  userID: Joi.string().required(),
+  iat: Joi.number().integer().required(),
+  exp: Joi.number().integer().required(),
+});
 
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   const { authorization } = req.headers;
@@ -16,11 +34,24 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = authorization.split(' ')[1];
     const payload = verify(token, EnvVars.JwtAccessSecret);
-    req.payload = payload;
+    req.body = {
+      ...req.body,
+      payload,
+    } as object;
   } catch (err) {
-    return res.status(HttpStatusCode.UNAUTHORIZED).json({
-      error: err.name === 'TokenExpiredError' ? err.name : 'Unauthorized',
-    });
+    if (
+      err instanceof JsonWebTokenError ||
+      err instanceof NotBeforeError ||
+      err instanceof TokenExpiredError
+    ) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        error: err.name,
+      });
+    } else {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        error: 'Unauthorized',
+      });
+    }
   }
 
   return next();

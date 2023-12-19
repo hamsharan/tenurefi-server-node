@@ -29,6 +29,12 @@ const app = express();
 const queueService = QueueService.getInstance();
 const defaultQueue = queueService.getQueue(Queues.DEFAULT);
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unreachable code error
+BigInt.prototype.toJSON = function () {
+  return parseInt(this.toString());
+};
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());

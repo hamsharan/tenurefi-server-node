@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Wallet" ALTER COLUMN "balance" SET DEFAULT 0,
+ALTER COLUMN "budget" DROP NOT NULL,
+ALTER COLUMN "rounding" DROP NOT NULL;
