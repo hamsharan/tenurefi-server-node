@@ -14,7 +14,6 @@ import { hashToken, generateTokens } from 'src/utils/jwt';
 import EnvVars from '@src/constants/EnvVars';
 import db from '@src/utils/db';
 import MailerService from '@src/services/MailerService';
-import isAuthenticated from './middleware/isAuthenticated';
 
 type AuthRequest = {
   email: string;
@@ -243,10 +242,6 @@ AuthRouter.post(
         refreshToken,
         userID: existingUser.id,
       });
-      // let jwtToken = req.headers.authorization?.split(' ')[1];
-    
-      // res.cookie('token', jwtToken, { httpOnly: true, secure: true, sameSite: 'Strict' });
-      res.cookie('token', accessToken, {httpOnly: true});
 
       return res.json({
         accessToken,
@@ -499,23 +494,6 @@ AuthRouter.post(
     } catch (err) {
       next(err);
     }
-  },
-);
-
-AuthRouter.post(
-  Paths.Auth.Test,
-  isAuthenticated,
-  async (req: Request, res: Response, next: NextFunction) => {
-      
-    const token = req.cookies['token']; // Make sure the key matches the cookie name set at login
-    if (!token) {
-      return res.status(401).send('No token found in cookies');
-    }
-
-    
-      return res.json({
-        accessToken: 'test',
-      });
   },
 );
 

@@ -10,7 +10,6 @@ const Paths = {
     RefreshToken: '/refresh-token',
     ForgotPassword: '/forgot-password',
     ResetPassword: '/reset-password',
-    Test: '/test',
   },
   User: {
     Base: '/user',
