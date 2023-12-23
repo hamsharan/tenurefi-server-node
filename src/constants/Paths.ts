@@ -35,7 +35,11 @@ const Paths = {
   BullBoard: {
     Base: '/bull-board',
   },
-  
+  Notification: {
+    Base: '/notification',
+    Single: '/single',
+    DeviceToken: '/device-token'
+  }
 };
 
 export type TPaths = Immutable<typeof Paths>;

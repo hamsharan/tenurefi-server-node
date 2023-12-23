@@ -4,13 +4,14 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:123@localhost:5432/mydb?schema=tenurefi-server-node"
+  url      = "postgresql://shrisanjaykumarselvakumar:@localhost:5432/mydatabase"
 }
 
 model User {
   id              String         @id @unique @default(uuid())
   email           String         @unique
   password        String
+  deviceToken     String?
   name            String?
   dob             DateTime?      @db.Date
   location        String?
