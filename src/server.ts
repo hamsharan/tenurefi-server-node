@@ -23,6 +23,8 @@ import { basicAuthMiddleware } from '@src/routes/middleware/basicAuth';
 import QueueService from '@src/services/QueueService';
 import { RouteError } from '@src/types/classes';
 import redisClient from '@src/utils/redis';
+import UserService from '@src/services/UserService';
+
 
 const app = express();
 
